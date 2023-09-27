@@ -1,0 +1,42 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+----sload maybe.maude
+sload view-oid.maude
+sload file.maude
+
+mod FILE-HANDLER is
+  pr MAYBE{Oid} .
+  inc FILE .
+
+  op TRACE-FILE : -> String .
+  ---- eq TRACE-FILE = "self.csv" .
+
+  ---- class FileHandler | file: Maybe{Oid} .
+  sort FileHandler .
+  subsort FileHandler < Cid .
+  op FileHandler : -> FileHandler .
+  op file:_ : Maybe{Oid} -> Attribute [ctor] . ---- file handlers
+
+  vars FH FILE : Oid .
+  vars DATA St St' : String .
+  var  Atts : AttributeSet .
+
+  op FILE-HANDLER : Oid -> Object .
+  eq FILE-HANDLER(FH)
+   = < FH : FileHandler | file: null >
+     openFile(fileManager, FH, TRACE-FILE, "w") .
+
+  rl < FH : FileHandler | file: null, Atts >
+     openedFile(FH, fileManager, FILE) 
+  => < FH : FileHandler | file: FILE, Atts > . 
+
+  rl < FH : FileHandler | file: FILE, Atts >
+     wrote(FH, FILE)
+  => < FH : FileHandler | file: FILE, Atts > 
+     flush(FILE, FH) .
+
+  rl < FH : FileHandler | file: FILE, Atts >
+     flushed(FH, FILE) 
+  => < FH : FileHandler | file: FILE, Atts > .
+endm

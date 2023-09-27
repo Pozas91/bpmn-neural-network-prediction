@@ -1,0 +1,42 @@
+---- Auto-generated file
+
+sload ../../../bpmn-file.maude
+sload ../../../bpmn-analysis.maude
+sload ../../../supervisor-usage.maude
+
+red in STRING : "recruitment.maude" .
+sload ../visa.maude --- visa-by-drones process
+
+mod RUN is
+  inc BPMN-EX .
+  inc SUPERVISOR .
+
+  eq TRACE-FILE = "<self-file>" .
+  eq POPULATION = 100 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+  eq TIME-BETWEEN-CHECKS = 10 .                 ---- TIME-BETWEEN-CHECKS
+  eq CHECK-INTERVAL = 25 .                      ---- CHECK-INTERVAL
+  eq RESOURCES
+    = (id("employee") |-> (1,10,10,2),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("printer") |-> (1,10,1,2)) .
+  eq THRESHOLDS
+    = (id("employee") |-> (70.0,80.0),   ---- THRESHOLDS
+       id("printer") |-> (70.0,80.0)) .
+  eq COSTS
+    = (id("employee") |-> 90.0,               ---- COST PER TIME UNIT
+       id("printer") |-> 2.0) .
+
+  ---- init state
+  ops p s w c l sh fh : -> Oid .
+  op initState : -> Configuration .
+  rl initState
+    => FILE-HANDLER(fh)
+       PROCESS(p)
+       SIMULATION(s, RESOURCES)
+       WORKLOAD(w, RATE, POPULATION)
+       COUNTER(c)
+       SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS) .
+endm
+
+erew { pretty-printing initState } .
+q

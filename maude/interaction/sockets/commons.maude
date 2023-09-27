@@ -1,0 +1,58 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload socket.maude
+
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op null : -> Maybe{X} [ctor] .
+endfm
+
+mod COMMONS is 
+   pr MAYBE{Nat} .
+   inc SOCKET .
+
+   ops PORT BACKLOG : -> Nat .
+   op IP : -> String .
+   eq PORT = 8811 .
+   eq BACKLOG = 5 .
+   eq IP = "localhost" .
+
+   ---- class Process | buffer: String .
+   sort Process .
+   subsort Process < Cid .
+   op Process : -> Process .
+   op buffer:_ : String -> Attribute [ctor] . ---- incoming messages buffer
+
+   op Receive : Oid Oid -> Msg .
+   op Received : Oid Oid String -> Msg .
+   
+   vars FW SOCKET : Oid .
+   vars DATA St St' : String .
+   var  Atts : AttributeSet .
+   var  VProcess : Process .
+
+   rl [Receive] : 
+    < FW : VProcess | buffer: St, Atts >  
+    Receive(SOCKET, FW)
+    => if find(St, "\n", 0) == notFound
+       then < FW : VProcess | buffer: St, Atts >  
+            receive(SOCKET, FW)
+       else < FW : VProcess | buffer: substr(St, find(St, "\n", 0) + 1, length(St)), Atts >  
+            Received(FW, SOCKET, substr(St, 0, find(St, "\n", 0) + 1))
+       fi .
+
+  crl [received] : 
+    < FW : VProcess | buffer: St, Atts >  
+    received(FW, SOCKET, DATA) 
+    => if find(St', "\n", 0) == notFound
+       then < FW : VProcess | buffer: St', Atts > 
+            receive(SOCKET, FW) 
+       else < FW : VProcess | 
+               buffer: substr(St', find(St', "\n", 0) + 1, length(St')), Atts >  
+            Received(FW, SOCKET, substr(St', 0, find(St', "\n", 0) + 1)) 
+       fi 
+   if St' := St + DATA .
+endm
+

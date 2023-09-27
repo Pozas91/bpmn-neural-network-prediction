@@ -1,0 +1,45 @@
+---- Auto-generated file
+
+sload ../../../bpmn-file.maude
+sload ../../../bpmn-analysis.maude
+sload ../../../supervisor-usage.maude
+
+red in STRING : "recruitment.maude" .
+sload ../recruitment.maude --- recruitment-by-drones process
+
+mod RUN is
+  inc BPMN-EX .
+  inc SUPERVISOR .
+
+  eq TRACE-FILE = "<self-file>" .
+  eq POPULATION = 100 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+  eq TIME-BETWEEN-CHECKS = 10 .                 ---- TIME-BETWEEN-CHECKS
+  eq CHECK-INTERVAL = 25 .                      ---- CHECK-INTERVAL
+  eq RESOURCES
+    = (id("hr") |-> (1,<max-hr>,10,2),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("assistant") |-> (1,<max-assistant>,2,2),
+       id("technicalstaff") |-> (1,<max-technical-staff>,5,2)) .
+  eq THRESHOLDS
+    = (id("hr") |-> (float(60),float(80)),   ---- THRESHOLDS
+       id("assistant") |-> (float(60),float(80)),
+       id("technicalstaff") |-> (float(60),float(80))) .
+  eq COSTS
+    = (id("hr") |-> float(90),               ---- COST PER TIME UNIT
+       id("assistant") |-> float(50),
+       id("technicalstaff") |-> float(70)) .
+
+  ---- init state
+  ops p s w c l sh fh : -> Oid .
+  op initState : -> Configuration .
+  rl initState
+    => FILE-HANDLER(fh)
+       PROCESS(p)
+       SIMULATION(s, RESOURCES)
+       WORKLOAD(w, RATE, POPULATION)
+       COUNTER(c)
+       SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS) .
+endm
+
+erew { pretty-printing initState } .
+q

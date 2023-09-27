@@ -1,0 +1,80 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload commons.maude
+
+mod BPMN is
+   pr COMMONS .
+
+   ---- class BPMN | wc: Maybe{Nat}, iter: Maybe{Nat} .
+   sort BPMN .
+   subsort BPMN < Process .
+   op BPMN : -> BPMN .
+   op wc:_ : Maybe{Nat} -> Attribute [ctor] . ---- write counter
+   op iter:_ : Maybe{Nat} -> Attribute [ctor] . ---- iteration
+   op buffer:_ : String -> Attribute [ctor] . ---- incoming messages buffer
+
+   vars FW CLIENT : Oid .
+   vars N M : Nat .
+   vars DATA St St' : String .
+   var  Atts : AttributeSet .
+
+   op b : -> Oid .
+
+   op BPMN : -> Configuration .
+   eq BPMN
+      = < b : BPMN | wc: null, iter: null, buffer: "" >
+        createClientTcpSocket(socketManager, b, IP, PORT) .
+
+   rl < FW : BPMN | wc: null, iter: null, Atts >
+      createdSocket(FW, socketManager, CLIENT) 
+   => < FW : BPMN | wc: 10, iter: 10, Atts > 
+      send(CLIENT, FW, "event(token(RUN), task, TIME)\n") . 
+      
+   rl < FW : BPMN | wc: s N, Atts >
+      sent(FW, CLIENT) 
+   => < FW : BPMN | wc: N, Atts > 
+      send(CLIENT, FW, "event(token(RUN), task, TIME)\n") .
+
+   rl < FW : BPMN | wc: 0, iter: s N, Atts >
+      sent(FW, CLIENT) 
+   => < FW : BPMN | wc: null, iter: s N, Atts > 
+      send(CLIENT, FW, "PREDICT\n") .
+      
+   rl < FW : BPMN | wc: null, iter: s N, Atts >
+      sent(FW, CLIENT) 
+   => < FW : BPMN | wc: null, iter: s N, Atts > 
+      Receive(CLIENT, FW) .
+   
+   rl < FW : BPMN | wc: null, iter: 0, Atts >
+      sent(FW, CLIENT) 
+   => < FW : BPMN | wc: null, iter: null, Atts >  .
+      
+   rl < FW : BPMN | wc: 0, iter: 0, Atts >
+      sent(FW, CLIENT)
+   => < FW : BPMN | wc: null, iter: 0, Atts > 
+      send(CLIENT, FW, "END\n") .
+
+   rl < FW : BPMN | wc: null, iter: s N, Atts >
+      Received(FW, CLIENT, DATA)
+   => if DATA == "END\n" ---- end of self file
+      then < FW : BPMN | wc: 10, iter: N, Atts >
+           send(CLIENT, FW, "event(token(RUN), task, TIME)\n")
+      else < FW : BPMN | wc: null, iter: s N, Atts >
+           Receive(CLIENT, FW)
+      fi 
+   [print "::: " DATA] .
+
+   rl < FW : BPMN | iter: 0, Atts >
+      Received(FW, CLIENT, DATA)
+   => if DATA == "END\n" ---- end of self file
+      then < FW : BPMN | iter: 0, Atts >
+      else < FW : BPMN | iter: 0, Atts >
+           Receive(CLIENT, FW)
+      fi 
+   [print "::: " DATA] .
+endm
+
+set print attribute on .
+set self off .
+erew <> BPMN .

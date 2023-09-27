@@ -1,0 +1,81 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload commons.maude
+
+mod PREDICTOR is
+   inc COMMONS .
+   
+   ---- class Predictor | wc : Maybe{Nat} .
+   sort Predictor .
+   subsort Predictor < Process .
+   op Predictor : -> Predictor .
+   op wc:_ : Maybe{Nat} -> Attribute [ctor] . ---- write counter
+   op buffer:_ : String -> Attribute [ctor] . ---- incoming messages buffer
+
+   vars FW CLIENT LISTENER : Oid .
+   vars N M : Nat .
+   vars CIP DATA St St' : String .
+   var  Atts : AttributeSet .
+
+   op p : -> Oid .
+
+   op PREDICTOR : -> Configuration .
+   eq PREDICTOR
+    = < p : Predictor | wc: null, buffer: "" >
+      createServerTcpSocket(socketManager, p, PORT, BACKLOG) .
+
+   rl < FW : Predictor | Atts >
+      createdSocket(FW, socketManager, LISTENER) 
+   => < FW : Predictor | Atts > 
+      acceptClient(LISTENER, FW) .
+
+   rl < FW : Predictor | Atts >
+      acceptedClient(FW, LISTENER, CIP, CLIENT) 
+   => < FW : Predictor | Atts > 
+      Receive(CLIENT, FW) 
+      acceptClient(LISTENER, FW) .
+
+   rl < FW : Predictor | wc: null, Atts >
+      Received(FW, CLIENT, DATA)
+   => if DATA == "PREDICT 25\n" ---- prediction request
+      then < FW : Predictor | wc: 25, Atts >
+           send(CLIENT, FW, "0, \"000\", 0\n")
+      else if DATA == "END\n" ---- end of the simulation
+           then < FW : Predictor | wc: null, Atts >
+                closeSocket(CLIENT, FW)
+           else ---- something is supposed to be done with the DATA, which represents an event
+                < FW : Predictor | wc: null, Atts > 
+                Receive(CLIENT, FW) 
+           fi
+      fi
+      [print "from socket client ---> " DATA] .
+
+   rl < FW : Predictor | wc: s N, Atts >
+      sent(FW, CLIENT) 
+   => < FW : Predictor | wc: N, Atts > 
+      send(CLIENT, FW, "0, \"000\", 0\n")
+      ---- [print "to socket client ---> 0, \"000\", 0"] 
+      .
+
+   rl < FW : Predictor | wc: 0, Atts > ---- count is zero, finish sending events
+      sent(FW, CLIENT) 
+   => < FW : Predictor | wc: null, Atts > 
+      send(CLIENT, FW, "END\n") 
+      ---- [print "to socket client ---> END"] 
+      .
+      
+   rl < FW : Predictor | wc: null, Atts >
+      sent(FW, CLIENT) 
+   => < FW : Predictor | wc: null, Atts > 
+      Receive(CLIENT, FW) .
+
+   rl < FW : Predictor | Atts >
+      closedSocket(FW, CLIENT, St)
+   => < FW : Predictor | Atts > .
+
+endm
+
+set print attribute on . 
+set self off .
+erew <> PREDICTOR .

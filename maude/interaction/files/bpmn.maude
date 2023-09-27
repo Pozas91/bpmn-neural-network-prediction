@@ -1,0 +1,102 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload file.maude
+
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op null : -> Maybe{X} [ctor] .
+endfm
+
+view Oid from TRIV to CONFIGURATION is
+  sort Elt to Oid .
+endv
+
+mod BPMN is
+  pr MAYBE{Oid} .
+  pr MAYBE{Nat} .
+  pr FILE .
+  pr CONVERSION .
+
+  ops TRACE-FILE PREDICTION-FILE : -> String .
+  eq TRACE-FILE = "self.csv" .
+  eq PREDICTION-FILE = "prediction.csv" .
+
+  ---- class FileManager | in : Maybe{Oid}, out : Maybe{Oid}, count : Maybe{Nat} .
+  sort FileManager .
+  subsort FileManager < Cid .
+  op FileManager : -> FileManager .
+  ops out`:_ in`:_ : Maybe{Oid} -> Attribute [ctor] . ---- file handlers
+  op wc :_ : Maybe{Nat} -> Attribute [ctor] . ---- write counter
+  op input :_ : String -> Attribute [ctor] . ---- reading
+  op iter :_ : Nat -> Attribute [ctor] . ---- iteration
+
+  vars FW OUT IN : Oid .
+  vars N M : Nat .
+  vars TEXT St : String .
+  var  Atts : AttributeSet .
+
+  op o : -> Oid .
+
+  op BPMN : Oid -> Object .
+  eq BPMN(FW)
+    = < FW : FileManager | in : null, out : null, wc : null, input : "", iter : 10 >
+      openFile(fileManager, FW, TRACE-FILE, "w") .
+
+  rl < FW : FileManager | out : null, Atts >
+     openedFile(FW, fileManager, OUT) 
+  => < FW : FileManager | out : OUT, Atts > 
+     openFile(fileManager, FW, PREDICTION-FILE, "r") .
+     
+  rl < FW : FileManager | out : OUT, in : null, wc : null, iter : s N, Atts >
+     openedFile(FW, fileManager, IN) 
+  => < FW : FileManager | out : OUT, in : IN, wc : 10, iter : N, Atts >
+     write(OUT, FW, "10," + string(N, 10) + "-task, 10/99\n") .
+
+  rl < FW : FileManager | out : OUT, Atts >
+     wrote(FW, OUT)
+  => < FW : FileManager | out : OUT, Atts > 
+     flush(OUT, FW) .
+
+  rl < FW : FileManager | out : OUT, wc : s N, iter : M, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | out : OUT, wc : N, iter : M, Atts > 
+     write(OUT, FW, string(N, 10) + ", " + string(M, 10) + "-task, " + string(N, 10) + "/99\n") .
+     
+  rl < FW : FileManager | out : OUT, wc : 0, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | out : OUT, wc : null, Atts > 
+     write(OUT, FW, "PREDICT\n") .
+
+  rl < FW : FileManager | out : OUT, in : IN, wc : null, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | out : OUT, in : IN, wc : null, Atts > 
+     getLine(IN, FW) .
+
+  rl < FW : FileManager | in : IN, out : OUT, iter : M, Atts >
+     gotLine(FW, IN, TEXT)
+  => if TEXT == "END" ---- end of self file
+     then if M == 0
+          then < FW : FileManager | in : IN, out : OUT, iter : M, Atts >
+               closeFile(IN, FW)
+               closeFile(OUT, FW)
+          else < FW : FileManager | in : IN, out : OUT, iter : sd(M, 1), Atts >
+               write(OUT, FW, "10, " + string(M, 10) + "-task, 10/99\n")
+          fi
+     else < FW : FileManager | in : IN, out : OUT, iter : M, Atts > 
+          getLine(IN, FW)
+     fi 
+     [print M ": " TEXT] .
+
+  rl < FW : FileManager | in : IN, Atts >
+     closedFile(FW, IN)
+  => < FW : FileManager | in : null, Atts > .
+
+  rl < FW : FileManager | out : OUT, Atts >
+     closedFile(FW, OUT)
+  => < FW : FileManager | out : null, Atts > .
+endm
+
+set print attribute on .
+erew <> BPMN(o) .

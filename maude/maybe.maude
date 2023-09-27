@@ -1,0 +1,8 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op null : -> Maybe{X} [ctor] .
+endfm

@@ -1,0 +1,57 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+---- Stochastic Expressions ----------------------------------------------------
+fmod STOCHASTIC-EXPRESSION is
+  pr MGDISTRIBUTIONS .
+  pr POSRAT-TIME-DOMAIN-WITH-INF .
+  pr 2-TUPLE{Time, Int} * (op `(_`,_`) to `{_`,_`}, op p1_ to time, op p2_ to int) .
+
+  sort StochasticExpression .
+  subsort Time < StochasticExpression .
+
+  vars F L M SG SH SC ND DD P LB UB : Float .
+     ---- L: lambda, M: mu, SG: sigma [Varianze = sigma^2]
+     ---- SH: shape, SC: scale NN:numerator degree
+  	 ---- DD: denominator degree
+  	 ---- LB: lower bound, UB: upper bound
+  vars S LI MI SGI SHI SCI NDI DDI PI LBI UBI : Int .
+     ---- S: seed, LI: lambda-integer, MI: mu-integer
+  	 ---- SGI: sigma-integer, SHI: shape-integer
+  	 ---- SCI: scale-integer --- NDI: numerator degree integer
+  	 ---- DDI: denominator degree integer
+  	 ---- LBI: lower bound integer, upper bound integer
+  vars LPR MPR SGPR SHPR SCPR NDPR DDPR PPR LBPR UBPR : PosRat .
+     ---- LPR: lambda-posrat MPR: mu-posrat
+  	 ---- SGPR: sigma-posrat SHPR: shape-posrat SCPR: scale-posrat
+  	 ---- NDPR: numerator degree posrat DDPR: denominator degree posrat
+  	 ---- LBPR: lower bound PosRat UBPR: upper bound PosRat
+  vars T T' : Time .
+
+  ---- NORMAL/GAUSS DISTRIBUTION
+  ---- standard normal = norm(0,1) = sqrt(-2ln(rand(0,1)))*cos(2pi*rand(0,1))
+  ---- norm(M,SG) =  SG*norm(0,1) + M
+  op Norm : -> StochasticExpression .
+  op Norm : Float Float -> StochasticExpression .
+  eq Norm = Norm(0.0, 1.0) .
+
+  ---- EXPONENTIAL DISTRIBUTION
+  ---- Mean = 1/L: this is the parameter as argument
+  ---- exp(L) = (ln(1000) - ln(rand(1000))) / L
+  op Exp : Float -> StochasticExpression .
+
+  ---- UNIFORM DISTRIBUTION
+  ---- A uniform distribution is commonly used if a random variable is bounded
+  ---- and no further information is available
+  ---- U(LB, UB) : LB: lower bound, UB: upper bound
+  op Unif : Float Float -> StochasticExpression .
+
+  op eval : StochasticExpression Int -> Tuple{Time, Int} . ---- Continuous time (Rat)
+  eq eval(Norm(M, SG), S)
+    = {if normDistr(M, SG, S) >= 0.0 then rat(normDistr(M, SG, S)) else 0 fi, s S} .
+  eq eval(Exp(L), S)
+    = {if expDistr(L, S) >= 0.0 then rat(expDistr(L, S)) else 0 fi, s S} .
+  eq eval(Unif(LB, UB), S)
+    = {if unifDistr(LB, UB, S) > 0.0 then rat(unifDistr(LB, UB, S)) else 0 fi, s S} .
+  eq eval(T, S) = {T, S} .
+endfm

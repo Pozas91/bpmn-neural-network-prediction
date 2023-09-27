@@ -1,0 +1,92 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload file.maude
+sload socket.maude
+
+view Oid from TRIV to CONFIGURATION is
+   sort Elt to Oid .
+endv
+
+fmod MAYBE{X :: TRIV} is
+   sort Maybe{X} .
+   subsort X$Elt < Maybe{X} .
+   op null : -> Maybe{X} [ctor] .
+endfm
+
+mod PROCESS is
+   inc MAYBE{Oid} .
+   inc FILE .
+   inc SOCKET .
+
+   op TRACE-FILE : -> String .
+   ops PORT BACKLOG : -> Nat .
+   op IP : -> String .
+   eq TRACE-FILE = "self.csv" .
+   eq PORT = 8811 .
+   eq BACKLOG = 5 .
+   eq IP = "localhost" .
+   op o : -> Oid .
+
+   ---- class Process | in-file: Oid, out-socket: Oid .
+   sort Process .
+   subsort Process < Cid .
+   op Process : -> Process .
+   ops in-file:_ out-socket:_ listener:_ : Maybe{Oid} -> Attribute [ctor] . ---- file handler and socket client
+
+   vars O FILE LISTENER SOCKET : Oid .
+   vars N M : Nat .
+   vars CIP TEXT St : String .
+   var  Atts : AttributeSet .
+   var  VProcess : Process .
+
+   op o : -> Oid .
+
+   op PROCESS : -> Object .
+   eq PROCESS
+      = < o : Process | in-file: null, out-socket: null, listener: null  >
+        createServerTcpSocket(socketManager, o, PORT, BACKLOG) .
+
+   rl < O : VProcess | listener: null, Atts >
+      createdSocket(O, socketManager, LISTENER) 
+   => < O : VProcess | listener: LISTENER, Atts > 
+      acceptClient(LISTENER, O) .
+
+   rl < O : VProcess | in-file: null, out-socket: null, Atts >
+      acceptedClient(O, LISTENER, CIP, SOCKET) 
+   => < O : VProcess | in-file: null, out-socket: SOCKET, Atts > 
+      openFile(fileManager, o, TRACE-FILE, "r") . ---- we assume the file already exists
+
+   rl < O : VProcess | in-file: null, Atts >
+      openedFile(O, fileManager, FILE) 
+   => < O : VProcess | in-file: FILE, Atts > 
+      getLine(FILE, O) .
+
+   rl < O : VProcess | in-file: FILE, out-socket: SOCKET, Atts >
+      gotLine(O, FILE, TEXT)
+   => if TEXT == "" 
+      then < O : VProcess | in-file: FILE, out-socket: SOCKET, Atts > 
+           closeFile(FILE, O)
+           closeSocket(SOCKET, O)
+      else < O : VProcess | in-file: FILE, out-socket: SOCKET, Atts > 
+           send(SOCKET, O, TEXT)
+      fi
+      [print TEXT] .
+
+   rl < O : VProcess | in-file: FILE, out-socket: SOCKET, Atts >
+      sent(O, SOCKET) 
+   => < O : VProcess | in-file: FILE, out-socket: SOCKET, Atts > 
+      getLine(FILE, O) .
+
+   rl < O : VProcess | in-file: FILE, Atts >
+      closedFile(O, FILE) 
+   => < O : VProcess | in-file: null, Atts > .
+
+   rl < O : VProcess | listener: LISTENER, out-socket: SOCKET, Atts >
+      closedSocket(O, SOCKET, St)
+   => < O : VProcess | listener: LISTENER, out-socket: null, Atts > 
+      acceptClient(LISTENER, O) .
+endm
+
+set print attribute on . 
+erew <> PROCESS .

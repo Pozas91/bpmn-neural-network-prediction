@@ -1,0 +1,34 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+fmod MY-MAP{X :: TRIV, Y :: TRIV} is
+  protecting MAP{X, Y} .
+  pr NAT .
+
+  var  D : X$Elt .
+  vars R R' : Y$Elt .
+  var  M : Map{X,Y} .
+  var  N : Nat .
+
+  op insert : X$Elt [Y$Elt] Map{X,Y} -> Map{X,Y} .
+  eq insert(D, undefined, (M, D |-> R))
+    = if $hasMapping(M, D)
+      then insert(D, undefined, M)
+      else M
+      fi .
+  eq insert(D, undefined, M) = M .
+
+  op size : Map{X,Y} -> Nat .
+  op $size : Map{X,Y} Nat -> Nat .
+  eq size(M) = $size(M, 0) .
+  eq $size((M, D |-> R), N)
+    = if $hasMapping(M, D)
+      then $size(insert(D, undefined, M), N)
+      else $size(M, s N)
+      fi .
+  eq $size(empty, N) = N .
+endfm
+
+view Map{X :: TRIV, Y :: TRIV} from TRIV to MY-MAP{X, Y} is
+  sort Elt to Map{X, Y} .
+endv

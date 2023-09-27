@@ -1,0 +1,99 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+---- Example of process for visa application.
+---- This takes inspiration in the example presented in the wrla'18 paper
+----  but ajusted to describe it using collaboration diagrams.
+
+mod BPMN-EX is
+  pr APMAUDE .
+  
+  op fls : -> Set{Flow} .
+  op nds : -> Set{Node} .
+
+  eq fls
+    = (
+        flow(id("r1"), Norm(1.0, 0.2)),
+        flow(id("r2"), Norm(1.0, 0.2)),
+        --- flow(id("r3"), Norm(1.0, 0.2)),
+        flow(id("r4"), Norm(1.0, 0.2)),
+        flow(id("r5"), Norm(1.0, 0.2), message(id("msizebig"), "size too big")),
+        flow(id("r6"), Norm(1.0, 0.2), message(id("mqualitylow"), "quality too low")),
+        flow(id("r7"), Norm(1.0, 0.2), message(id("maccept"), "accept")),
+        flow(id("r8"), Norm(1.0, 0.2), message(id("mreject"), "reject")),
+        flow(id("r9"), 0, message(id("mdeliver"), "deliver"), id("r9-2")),
+        flow(id("r9-2"), Norm(1.0, 0.2)),
+        flow(id("r10"), Norm(1.0, 0.2)),
+
+        flow(id("c1"), Norm(1.0, 0.2)),
+        flow(id("c2"), Norm(1.0, 0.2)),
+        flow(id("c3"), Norm(1.0, 0.2)),
+        flow(id("c4"), Norm(1.0, 0.2)),
+        flow(id("c5"), Norm(1.0, 0.2)),
+        flow(id("c6"), Norm(1.0, 0.2)),
+        flow(id("c7"), Norm(1.0, 0.2)),
+        flow(id("c8"), Norm(1.0, 0.2)),
+        flow(id("c9"), Norm(1.0, 0.2)),
+        flow(id("c10"), Norm(1.0, 0.2)),
+        flow(id("c11"), Norm(1.0, 0.2)),
+        flow(id("c12"), Norm(1.0, 0.2)),
+
+        flow(id("e1"), Norm(1.0, 0.2)),
+        flow(id("e2"), Norm(1.0, 0.2)),
+        flow(id("e3"), Norm(1.0, 0.2)),
+        flow(id("e4"), Norm(1.0, 0.2)),
+        flow(id("e5"), Norm(1.0, 0.2), message(id("mpay"), "pay for fees")),
+        flow(id("e6"), Norm(1.0, 0.2)),
+        flow(id("e7"), Norm(1.0, 0.2)),
+        flow(id("e8"), Norm(1.0, 0.2)),
+
+        flow(id("r11"), message(id("cinitiated"), "checking initiated"), id("c1")),
+        flow(id("c13"), message(id("vinitiated"), "visa initiated"), id("e1")),
+
+        flow(id("finalflow"), 0)
+      ) .
+  eq nds
+    = (
+        start(id("initial"), id("r1")),
+
+        --- merge(id("g1"), exclusive, (id("r2"), id("r5")), id("r3")),
+        split(id("g2"), eventbased, id("r4"), (id("r5"), id("r6"), id("r7"), id("r8"))),
+        merge(id("g3"), eventbased, (id("r5"), id("r6"), id("r9-2"), id("r8")), id("r10")),
+        split(id("g4"), exclusive, id("c2"), ((id("c3"), 0.2) (id("c4"), 0.8))),
+        split(id("g5"), exclusive, id("c7"), ((id("c8"), 0.2) (id("c9"), 0.8))),
+        merge(id("g6"), exclusive, (id("c5"), id("c10"), id("c11")), id("c12")),
+        split(id("g7"), exclusive, id("e2"), ((id("e3"), 0.7) (id("e4"), 0.3))),
+        merge(id("g8"), exclusive, (id("e6"), id("e7")), id("e8")),
+
+        --- we use an inclusive merge for joining all lanes because
+        --- the last lane (visa agency) is not systematically triggered
+        merge(id("g9"), parallel, (id("r10"), id("c12")), id("finalflow")),
+
+        --- Time unit used: hours.
+
+        task(id("t1"), "apply online", id("r1"), id("r2"), Unif(1.0, 3.0), empty, empty),
+        task(id("t2"), "upload scanned passport", id("r2"), id("r4"), Norm(0.5, 0.3), empty, (id("cinitiated"))),
+        task(id("t3"), "pay for fees", id("r7"), id("r9"), Norm(0.3, 0.1), empty, (id("mpay"))),
+
+        task(id("t4"), "check filesize", id("c1"), id("c2"), Norm(0.1, 0.05), empty, empty),
+        task(id("t5"), "size too large", id("c3"), id("c5"), Norm(0.1, 0.05), empty, (id("msizebig"))),
+        task(id("t6"), "size ok", id("c4"), id("c6"), Norm(0.1, 0.05), empty, empty),
+        task(id("t7"), "check quality", id("c6"), id("c7"), Norm(0.1, 0.05), empty, empty),
+        task(id("t8"), "quality too low", id("c8"), id("c10"), Norm(0.1, 0.05), empty, (id("mqualitylow"))),
+        task(id("t9"), "quality ok", id("c9"), id("c11"), Norm(0.1, 0.05), empty, (id("vinitiated"))),
+
+        task(id("t10"), "evaluate application", id("e1"), id("e2"), Norm(12.0, 6.0), (id("employee")), empty),
+        task(id("t11"), "notify accept", id("e3"), id("e5"), Unif(0.5, 1.0), (id("employee")), (id("maccept"))),
+        task(id("t12"), "notify reject", id("e4"), id("e6"), Unif(0.5, 1.0), (id("employee")), (id("mreject"))),
+        task(id("t13"), "deliver visa", id("e5"), id("e7"), Norm(3.0, 1.0), (id("employee"), id("printer")), (id("mdeliver"))),
+
+        endLane(id("final2"), id("e8")),
+        end(id("final"), id("finalflow"))
+      ) .
+
+  var O : Oid .
+  op PROCESS : Oid -> Object .
+  eq PROCESS(O) = < O : Process | nodes: nds, flows: fls > .
+  op initial : -> Id .
+  eq initial = id("initial") .
+endm

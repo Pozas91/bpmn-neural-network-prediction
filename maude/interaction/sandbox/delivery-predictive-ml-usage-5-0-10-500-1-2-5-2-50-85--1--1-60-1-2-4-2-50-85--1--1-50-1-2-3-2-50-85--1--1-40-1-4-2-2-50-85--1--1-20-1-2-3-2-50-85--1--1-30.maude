@@ -1,0 +1,62 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, and Gwen Salaun
+---- file: run.maude
+----
+---- This file contains operations for the automated analysis of BPMN processes
+
+sload ../../bpmn-sockets.maude
+sload ../../bpmn-sockets-analysis.maude
+sload ../../log-guided/bpmn-log-guided.maude
+sload ../../supervisor-predictive-ml-usage.maude
+
+red in STRING : "delivery.maude" .
+red in STRING : "ExperimentId(delivery-predictive-ml-usage-5-0-10-500-1-2-5-2-50-85--1--1-60-1-2-4-2-50-85--1--1-50-1-2-3-2-50-85--1--1-40-1-4-2-2-50-85--1--1-20-1-2-3-2-50-85--1--1-30)" .
+load ../../examples/delivery/delivery.maude
+
+mod RUN is
+  inc BPMN-EX .
+  inc SUPERVISOR .
+
+  eq POPULATION = 500 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+  eq TIME-BETWEEN-CHECKS = 5 .                 ---- TIME-BETWEEN-CHECKS
+  eq CHECK-INTERVAL = 0 .                      ---- CHECK-INTERVAL
+  eq PREDICTION-TIME = 10 .                     ---- SIZE OF PREDICTION
+  eq RESOURCES
+    = (id("clerk") |-> (1,2,5,2),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("worker") |-> (1,2,4,2),
+       id("courier") |-> (1,2,3,2),
+       id("car") |-> (1,4,2,2),
+       id("drone") |-> (1,2,3,2)) .
+  eq THRESHOLDS
+    = (id("clerk") |-> (float(50), float(85)),   ---- THRESHOLDS
+       id("worker") |-> (float(50), float(85)),
+       id("courier") |-> (float(50), float(85)),
+       id("car") |-> (float(50), float(85)),
+       id("drone") |-> (float(50), float(85))) .
+  eq COSTS
+    = (id("clerk") |-> float(60),               ---- COST PER TIME UNIT
+       id("worker") |-> float(50),
+       id("courier") |-> float(40),
+       id("drone") |-> float(20),
+       id("car") |-> float(30)) .
+
+  ---- init state
+  ops p s w c l sh : -> Oid .
+  op initState : -> Configuration .
+  eq initState
+    = token ---- used to wait for socket sent confirmations before attempting subsequent sends or receives
+      PROCESS(p)
+      SIMULATION(s, RESOURCES)
+      WORKLOAD(w, RATE, POPULATION)
+      COUNTER(c)
+      SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS, PREDICTION-TIME)
+      SOCKET-HANDLER(sh) 
+      .
+endm
+
+set print attribute off .
+set self off .
+
+erew { complete initState } .
+q

@@ -1,0 +1,31 @@
+duran@pdi-133-24 examples % maude recruitment/runs/bpmn-run-recruitment-usage.maude 
+rewrites: 19154360 in 39225ms cpu (39604ms real) (488310 rewrites/second)
+result System: 
+average execution time : 4.543559904839326e+2
+variance execution time : 3.4148144108422514e+1
+total cost : 2.653646686062308e+6
+resource usage : id("assistant") |-> 4.2181825448276605e+1, id("hr") |-> 5.4926833922923116e+1, id("technicalstaff") |-> 5.8039673463185153
+
+duran@pdi-133-24 examples % maude recruitment/runs/bpmn-run-recruitment-queues.maude 
+rewrites: 19713782 in 42815ms cpu (43470ms real) (460439 rewrites/second)
+result System: 
+average execution time : 5.1180973693882225e+2
+variance execution time : 1.9448376019216798
+total cost : 3.3829737434815718e+6
+resource usage : id("assistant") |-> 3.2946219149272423e+1, id("hr") |-> 4.4213241277838797e+1, id("technicalstaff") |-> 5.2196388357664496
+
+duran@pdi-133-24 examples % maude recruitment/runs/bpmn-run-recruitment-usage-queues.maude 
+rewrites: 19719893 in 42236ms cpu (42817ms real) (466890 rewrites/second)
+result System: 
+average execution time : 5.1180973693882225e+2
+variance execution time : 1.9448376019216798
+total cost : 3.3934737434815718e+6
+resource usage : id("assistant") |-> 3.2639047524136046e+1, id("hr") |-> 4.4213241277838797e+1, id("technicalstaff") |-> 5.2196388357664496
+
+duran@pdi-133-24 examples % maude recruitment/runs/bpmn-run-recruitment-predictive-usage.maude 
+rewrites: 69859048 in 141227ms cpu (143347ms real) (494656 rewrites/second)
+result System: 
+average execution time : 4.483326306916876e+2
+variance execution time : 2.9392023393622903e+1
+total cost : 2.2734555203715321e+6
+resource usage : id("assistant") |-> 4.0630684684780903e+1, id("hr") |-> 5.8214742053004954e+1, id("technicalstaff") |-> 4.8271134864160476

@@ -1,0 +1,107 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload file.maude
+
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op null : -> Maybe{X} [ctor] .
+endfm
+
+view Oid from TRIV to CONFIGURATION is
+  sort Elt to Oid .
+endv
+
+mod PREDICTOR is
+  pr MAYBE{Oid} .
+  pr MAYBE{Nat} .
+  pr FILE .
+  pr CONVERSION .
+
+  ops TRACE-FILE PREDICTION-FILE : -> String .
+  eq TRACE-FILE = "self.csv" .
+  eq PREDICTION-FILE = "prediction.csv" .
+
+  ---- class FileManager | in : Maybe{Oid}, out : Maybe{Oid}, count : Maybe{Nat} .
+  sort FileManager .
+  subsort FileManager < Cid .
+  op FileManager : -> FileManager .
+  ops out`:_ in`:_ : Maybe{Oid} -> Attribute [ctor] . ---- file handlers
+  op wc :_ : Maybe{Nat} -> Attribute [ctor] . ---- write counter
+  op input :_ : String -> Attribute [ctor] . ---- reading
+  op iter :_ : Nat -> Attribute [ctor] . ---- iteration
+
+  vars FW OUT IN : Oid .
+  vars N M : Nat .
+  vars TEXT St : String .
+  var  Atts : AttributeSet .
+
+  op o : -> Oid .
+
+  op PREDICTOR : Oid -> Object .
+  eq PREDICTOR(FW)
+    = < FW : FileManager | in : null, out : null, wc : null, input : "", iter : 0 >
+      openFile(fileManager, FW, TRACE-FILE, "r") . ---- we assume the file already exists
+
+  rl < FW : FileManager | in : null, iter : N, Atts >
+     openedFile(FW, fileManager, IN) 
+  => < FW : FileManager | in : IN, iter : s N, Atts > 
+     openFile(fileManager, FW, PREDICTION-FILE, "w") .
+
+  rl < FW : FileManager | in : IN, out : null, iter : N, Atts >
+     openedFile(FW, fileManager, OUT) 
+  => < FW : FileManager | in : IN, out : OUT, iter : s N, Atts > 
+     getLine(IN, FW) .
+
+  rl < FW : FileManager | in : IN, out : OUT, wc : null, input : St, iter : N, Atts >
+     gotLine(FW, IN, TEXT)
+  => if TEXT == "" 
+     then < FW : FileManager | in : IN, out : OUT, wc : null, input : TEXT, iter : N, Atts > 
+          getLine(IN, FW)
+     else if TEXT == "PREDICT\n" ---- prediction request
+          then < FW : FileManager | in : IN, out : OUT, wc : 10, input : St, iter : N, Atts >
+                write(OUT, FW, "10, " + string(N, 10) + "-task, 10/99\n")
+          else if TEXT == "END\n" ---- end of the simulation
+               then < FW : FileManager | in : IN, out : OUT, wc : null, input : St, iter : N, Atts >
+                    closeFile(IN, FW)
+                    closeFile(OUT, FW)
+               else ---- something is supposed to be done with the TEXT, which represents an event
+                    < FW : FileManager | in : IN, out : OUT, wc : null, input : (St + TEXT), iter : N, Atts > 
+                    getLine(IN, FW)
+               fi
+          fi 
+     fi
+     [print N ": " TEXT] .
+
+  rl < FW : FileManager | out : OUT, Atts >
+     wrote(FW, OUT)
+  => < FW : FileManager | out : OUT, Atts > 
+     flush(OUT, FW) .
+
+  rl < FW : FileManager | out : OUT, wc : s N, iter : M, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | out : OUT, wc : N, iter : M, Atts > 
+     write(OUT, FW, string(N, 10) + ", " + string(M, 10) + "-task, " + string(N, 10) + "/99\n") .
+     
+  rl < FW : FileManager | out : OUT, wc : 0, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | out : OUT, wc : null, Atts > 
+     write(OUT, FW, "END\n") . ---- end of the prediction
+
+  rl < FW : FileManager | in : IN, out : OUT, wc : null, iter : s N, Atts >
+     flushed(FW, OUT)
+  => < FW : FileManager | in : IN, out : OUT, wc : null, iter : N, Atts > 
+     getLine(IN, FW) .
+
+  rl < FW : FileManager | in : IN, Atts >
+     closedFile(FW, IN) 
+  => < FW : FileManager | in : null, Atts > .
+
+  rl < FW : FileManager | out : OUT, Atts >
+     closedFile(FW, OUT) 
+  => < FW : FileManager | out : null, Atts > .
+endm
+
+set print attribute on . 
+erew <> PREDICTOR(o) .

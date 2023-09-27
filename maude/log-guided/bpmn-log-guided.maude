@@ -1,0 +1,472 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+---- sload ../bpmn-sockets.maude
+
+---- Resource queues are not updated
+
+--------------------------------------------------------------------------------
+---- Log
+
+mod LOG-EVENT is
+  pr ID .
+  pr STRING .
+  pr POSRAT-TIME-DOMAIN-WITH-INF .
+  sorts LogEvent  EventType .
+  op event : String -> EventType .
+  op id : String -> Id .
+  op event : Id Id EventType Time -> LogEvent [ctor] .
+  op END : -> LogEvent .
+  op PREDICTIONS : Nat -> LogEvent .
+endm
+
+view LogEvent from TRIV to LOG-EVENT is
+  sort Elt to LogEvent .
+endv
+
+---- Ctrl objects have an events attribute to guide the execution, but events can come from different sources. 
+---- The CtrlSocket subclass defined at the end of this file reads events from a socket, and place them, after 
+---- appropriately parsing them in the events attribute so that they can be used to guide the process. 
+mod CTRL is 
+  inc CONFIGURATION . 
+  pr LIST{LogEvent} .
+
+  ---- class Ctrl | events: List{LogEvent} .
+  sort Ctrl .
+  subsort Ctrl < Cid .
+  op Ctrl : -> Ctrl .
+  op events:_ : List{LogEvent} -> Attribute [ctor gather(&)] .  ---- list of log events (one at a time)
+endm
+
+--------------------------------------------------------------------------------
+
+mod BPMN-LOG-GUIDED is 
+  inc BPMN-SEM .
+  inc CTRL .
+  pr 2-TUPLE{Set{Token}, Int} * (op `(_`,_`) to `{_`,_`}) .
+
+  var  IdNNNs : Map{Id, 4-Tuple{Nat, Nat, Time, Nat}} .
+  vars PId SId CId WId Sup LId : Oid .
+  vars TId TId' RId NId FId FId1 FId2 Id Id' MId : Id .
+  var  Nodes : Set{Node} .
+  vars Flows Flows' : Set{Flow} .
+  vars Rs Rs' Rs1 Rs2 : Set{Resource} .
+  vars Atts Atts1 Atts2 : AttributeSet .
+  var  Conf : Configuration .
+  vars TaskName MD Str : String .
+  vars IdS IdS' FIds FIds' Visited RIds SEI SEII SEIO : Set{Id} .
+  vars T T' T'' T''' T1 T2 T4 AT : Time .
+  var  GW : Gateway .
+  vars Tks Tks' Tks'' : List{Token} .
+  var  TkS : Set{Token} .
+  var  Tk : Token .
+  vars N N' N'' N''' Avl Ttl QSize Min Max A1 A2 W : Nat .
+  vars FIdPs FIdPL1 FIdPL2 : List{2-Tuple{Id, Float}} .
+  vars P P' R F F' : Float .
+  vars TSs TSs' : Map{Id, Time} .
+  vars TTSs TTSs' TTSs1 TTSs2 TTSs3 TTSs4 : Map{Id, Map{Id, Time}} .
+  vars SE SE1 SE2 : StochasticExpression .
+  vars E E1 E2 : Event .
+  vars FNs FNs' SeqAvl SeqTtl SeqQSize : List{2-Tuple{Float, Nat}} .
+  var  ME : Map{Id, Set{EventInstance}} .
+  var  Evs : Set{EventInstance} .
+  var  Replicas : Bag{Replica} .
+  var  SeqUsage : List{2-Tuple{Float, Float}} .
+  vars EL EL' EL'' : List{LogEvent} .
+  var  LE : LogEvent .
+  vars AltFIds AltFIds' : Set{Id} .
+  var  VCtrl : Ctrl .
+  var  St : String . 
+
+  ------------------------------------------------------------------------------
+  ---- Initiation of the process
+  crl [startProc] :
+    < PId : Process |
+        nodes: (start(NId, FId), Nodes),
+        flows: (flow(FId, SE), Flows),
+        Atts >
+    < SId : Simulation |
+        gtime: T,
+        process-tstamps: TSs,
+        size-process-tstamps: N'',
+        task-times: TTSs1,
+        sync-times: TTSs2,
+        task-tstamps: TTSs3,
+        sync-tstamps: TTSs4,
+        events: ME,
+        Atts1 >
+    < LId : VCtrl | 
+        events: (event(TId, NId, event(Str), T') EL), 
+        Atts2 >
+  => < PId : Process |
+        nodes: (start(NId, FId), Nodes),
+        flows: (flow(FId, SE), Flows),
+        Atts >
+    < SId : Simulation |
+        gtime: T'',
+        process-tstamps: insert(TId, T'', TSs), ---- time stamp with the time at initialization
+        size-process-tstamps: size(insert(TId, T'', TSs)),
+        task-times: insert(TId, empty, TTSs1),
+        sync-times: insert(TId, empty, TTSs2),
+        task-tstamps: insert(TId, empty, TTSs3),
+        sync-tstamps: insert(TId, empty, TTSs4),
+        events: insert(TId, empty, ME),
+        Atts1 >
+    < LId : VCtrl | events: EL, Atts2 >
+    if TSs[TId] = undefined ---- No previous execution with the same id
+    /\ T'' := maximum(T, T') ---- time cannot go backwards
+    [print "[PREDICTION] " TId ", " NId ", " T''] .
+
+  ------------------------------------------------------------------------------
+  ---- Termination of the process
+  crl [endProc] :
+     < PId : Process |
+         nodes: (end(NId, FId), Nodes),
+         Atts >
+     < SId : Simulation |
+         gtime: T,
+         process-execs: TSs,
+         size-process-execs: N,
+         process-tstamps: TSs',
+         resources: Rs,
+         Atts1 >
+     < LId : VCtrl | 
+         events: (event(TId, NId, event(Str), T') EL), 
+         Atts2 >
+  => < PId : Process |
+         nodes: (end(NId, FId), Nodes),
+         Atts >
+     < SId : Simulation |
+         gtime: T'',
+         process-execs: insert(TId, T'' monus TSs'[TId], TSs),
+            ---- time elapsed between the current time and the initialization
+            ---- in case of multiple end events, this keeps the last one
+         size-process-execs: size(insert(TId, T'' monus TSs'[TId], TSs)),
+         process-tstamps: TSs',
+         resources: Rs,
+         Atts1 >
+     < LId : VCtrl | events: EL, Atts2 >
+  if T'' := maximum(T, T') ---- time cannot go backwards
+  [print "[PREDICTION] " TId ", " NId ", " T''] .
+
+  ------------------------------------------------------------------------------
+  ---- Initiation of a task
+  crl [initTask] :
+      < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE, RIds, SEI), Nodes), Atts >
+      < SId : Simulation | task-tstamps: TTSs, gtime: T, resources: Rs, Atts1 >
+      < LId : VCtrl | events: (event(TId, NId, event("init"), T') EL), Atts2 >
+   => < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE, RIds, SEI), Nodes), Atts >
+      < SId : Simulation |
+          task-tstamps: if TTSs[TId][NId] == undefined
+                        then insert(TId, insert(NId, T'', TTSs[TId]), TTSs)
+                        else TTSs
+                        fi, ---- if there are loops, we overwrite stamps
+          gtime: T'',
+          resources: grabResources(TId, NId, RIds, Rs, T''),
+          Atts1 >
+      < LId : VCtrl | events: EL, Atts2 >
+  if T'' := maximum(T, T') ---- time cannot go backwards
+  [print "[PREDICTION] " TId ", " NId "-init, " T''] .
+
+  crl [initTask] :
+      < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+      < SId : Simulation | task-tstamps: TTSs, gtime: T, resources: Rs, Atts1 >
+      < LId : VCtrl | events: (event(TId, NId, event("init"), T') EL), Atts2 >
+   => < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+      < SId : Simulation | task-tstamps:  if TTSs[TId][NId] == undefined
+                                          then insert(TId, insert(NId, T'', TTSs[TId]), TTSs)
+                                          else TTSs
+                                          fi, ---- if there are loops, we overwrite stamps
+                            gtime: T'',
+                            resources: grabResources(TId, NId, RIds, Rs, T''),
+                            Atts1 >
+      < LId : VCtrl | events: EL, Atts2 >
+  if T'' := maximum(T, T') ---- time cannot go backwards
+  [print "[PREDICTION] " TId ", " NId "-init, " T''] .
+
+  ------------------------------------------------------------------------------
+  ---- Upon need, a new fake replica is created. 
+  ---- Fake replicas will increase the global time of use, but without increasing the total 
+  ---- number of replicas, which may result in uses over 100%
+  op fakeReplica : Id Id Time -> Replica .
+
+  eq grabResources(TId, NId, (RId, RIds),
+       (resource(RId, Min, Max, AT, Ttl, SeqTtl, 0, SeqAvl,
+          Replicas,
+          QSize, SeqQSize, SeqUsage, T, T'),
+        Rs),
+       T'')
+   = grabResources(TId, NId, RIds,
+       (resource(RId, Min, Max, AT, Ttl, SeqTtl, 0, SeqAvl (float(T''), 0),
+          (fakeReplica(TId, NId, T'') ; Replicas),
+          if QSize > 0 then sd(QSize, 1) else 0 fi, SeqQSize (float(T''), QSize), SeqUsage, T, T'),
+        Rs),
+       T'') .
+
+  eq releaseResources(TId, NId, (RId, RIds),
+       (resource(RId, Min, Max, AT, Ttl, SeqTtl, Avl, SeqAvl,
+          (Replicas ; fakeReplica(TId, NId, T''')),
+          QSize, SeqQSize, SeqUsage, T, T'),
+        Rs),
+       T'')
+    = releaseResources(TId, NId, RIds,
+        (resource(RId, Min, Max, AT, Ttl, SeqTtl, Avl, SeqAvl (float(T''), s Avl),
+           Replicas,
+           QSize, SeqQSize, SeqUsage, T + (T'' monus T'''), T'),
+         Rs),
+        T'') .
+  eq releaseResources(TId, NId, RIds, Rs, T) = Rs [owise] .
+
+  ------------------------------------------------------------------------------
+  ---- Execution / completion of a task
+  crl [execTask] :
+      < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE1, RIds, SEI), Nodes), Atts >
+      < SId : Simulation | task-tstamps: TTSs,
+                            task-times: TTSs',
+                            gtime: T,
+                            resources: Rs,
+                            events: ME,
+                            Atts1 >
+      < LId : VCtrl | events: (event(TId, NId, event("end"), T') EL), Atts2 >
+    => < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE1, RIds, SEI), Nodes), Atts >
+      < SId : Simulation |
+          task-tstamps: TTSs,
+          task-times: insert(TId, insert(NId, T'' monus TTSs[TId][NId], TTSs'[TId]), TTSs'),
+          gtime: T'',
+          resources: releaseResources(TId, NId, RIds, Rs, T''),
+          events: addActiveEvents(TId, SEI, ME),
+          Atts1 >
+      < LId : VCtrl | events: EL, Atts2 >
+  if T'' := maximum(T, T') ---- time cannot go backwards
+  [print "[PREDICTION] " TId ", " NId "-end, " T''] .
+
+  crl [execTask] :
+      < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+      < SId : Simulation |
+          task-tstamps: TTSs,
+          task-times: TTSs',
+          gtime: T,
+          resources: Rs,
+          events: ((TId |-> (msg(MId), Evs)), ME),
+          Atts1 >
+      < LId : VCtrl | events: (event(TId, NId, event("end"), T') EL), Atts2 >
+    => < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+      < SId : Simulation |
+          task-tstamps: TTSs,
+          task-times: insert(TId, insert(NId, T'' monus TTSs[TId][NId], TTSs'[TId]), TTSs'),
+          gtime: T'',
+          resources: Rs',
+          events: ((TId |-> Evs), ME),
+          Atts1 >
+      < LId : VCtrl | events: EL, Atts2 >
+  if T'' := maximum(T, T') ---- time cannot go backwards
+  /\ Rs' := releaseResources(TId, NId, RIds, Rs, T'')
+  [print "[PREDICTION] " TId ", " NId "-end, " T''] .
+
+  --------------------------------------------------------------------------------------------------------------
+  ---- shift(Conf) puts at the front of the scheduler a token in an active node on a different execution.
+  ---- Note that a shifting do not require the entire configuration, only the Process, the Ctrl, and, in some 
+  ---- cases, the Simulation object
+  op shift : Configuration -> Configuration .
+  op shiftAux : Configuration List{LogEvent} List{LogEvent} -> Configuration .
+
+  ---- if shift is invoked, we may assume the token at the front is not active
+  eq shift(< LId : VCtrl | events: (LE EL), Atts > Conf)
+    = shiftAux(< LId : VCtrl | events: (LE EL), Atts > Conf, LE, EL) .
+
+  eq [shift] : 
+      shiftAux(
+        < PId : Process | nodes: (start(NId, FId), Nodes), Atts >
+        < LId : VCtrl | events: EL, Atts2 >
+        Conf,
+        EL',
+        (event(TId, NId, event(Str), T') EL''))
+      = < PId : Process | nodes: (start(NId, FId), Nodes), Atts >
+        < LId : VCtrl | events: (event(TId, NId, event(Str), T') EL' EL''), Atts2 >
+        Conf .
+  eq [shift] : 
+      shiftAux(
+        < PId : Process | nodes: (end(NId, FId), Nodes), Atts >
+        < LId : VCtrl | events: EL, Atts2 >
+        Conf,
+        EL',
+        (event(TId, NId, event(Str), T') EL''))
+      = < PId : Process | nodes: (end(NId, FId), Nodes), Atts >
+        < LId : VCtrl | events: (event(TId, NId, event(Str), T') EL' EL''), Atts2 >
+        Conf .
+  ceq [shift] :
+      shiftAux(
+        < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE, RIds, SEI), Nodes), Atts >
+        < SId : Simulation | resources: Rs, Atts1 >
+        < LId : VCtrl | events: EL, Atts2 >
+        Conf,
+        EL', ---- non-active events
+        event(TId, NId, event("init"), T') EL'')
+      = < PId : Process | nodes: (task(NId, TaskName, FId1, FId2, SE, RIds, SEI), Nodes), Atts >
+        < SId : Simulation | resources: Rs, Atts1 >
+        < LId : VCtrl | events: (event(TId, NId, event("init"), T') EL' EL''), Atts2 > ---- moved to the front
+        Conf
+    if allResourcesAvailable(RIds, Rs) .
+  ceq [shift] :
+      shiftAux(
+        < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+        < SId : Simulation | resources: Rs, Atts1 >
+        < LId : VCtrl | events: EL, Atts2 >
+        Conf,
+        EL',
+        event(TId, NId, event("init"), T') EL'')
+      = < PId : Process | nodes: (task2(NId, TaskName, FId1, FId2, SE, RIds, SEIO, SEII), Nodes), Atts >
+        < SId : Simulation | resources: Rs, Atts1 >
+        < LId : VCtrl | events: (event(TId, NId, event("init"), T') EL' EL''), Atts2 >
+        Conf
+    if allResourcesAvailable(RIds, Rs) .
+
+  ---- if none of the actions is applicable on E, it is moved into the list of non-active events
+  eq [shift] : shiftAux(Conf, EL', LE EL'') = shiftAux(Conf, EL' LE, EL'') [owise] .
+  ---- if no active event is found the configuration is left as it was
+  eq [shift] : shiftAux(Conf, EL, nil) = Conf . 
+endm
+
+--------------------------------------------------------------------------------
+---- Log
+
+mod PARSE-LOG-EVENT is
+  pr LIST{LogEvent} .
+  pr LIST{String} .
+  pr EXT-BOOL .
+  pr CONVERSION .
+  inc CTRL .
+  inc TOKEN .
+
+  vars Str Str' Str1 Str2 Str3 Str4 Del : String .
+  vars TId NId : Id .
+  var  I : Nat .
+  var  Strs : List{String} .
+
+  ---- removes white spaces (" ", "\t" and "\n") from a string
+  op trim : String -> String .
+  op trim : String String Nat -> String .
+  eq trim(Str)
+    = trim(Str, "", 0) .
+  eq trim(Str, Str', I)
+    = if I == length(Str)
+      then Str'
+      else if substr(Str, I, 1) == " " or-else substr(Str, I, 1) == "\t" or-else substr(Str, I, 1) == "\n"
+           then trim(Str, Str', s I)
+           else trim(Str, Str' + substr(Str, I, 1), s I)
+           fi
+      fi .
+
+  ---- splits a string using the separator character passed as second argument
+  op split : String String -> List{String} .
+  op split : String List{String} Nat String -> List{String} .
+  eq split(Str, Del)
+   = split(Str, nil, 0, Del) .
+  eq split(Str, Strs, I, Del)
+   = if find(Str, Del, I) == notFound
+     then if substr(Str, I, -1) == ""
+          then Strs
+          else Strs substr(Str, I, length(Str))
+          fi
+     else split(Str, Strs substr(Str, I, find(Str, Del, I) - I), s find(Str, Del, I), Del)
+     fi .
+
+  op parseLogEvent : String -> List{LogEvent} .
+  op parseLogEvent : String List{String} -> List{LogEvent} .
+  eq parseLogEvent(Str) = parseLogEvent(Str, split(trim(Str), ",")) [owise] .
+  eq parseLogEvent(Str, Str1 Str2 Str3)
+   = if split(Str2, "-") == Str2
+     then parseLogEvent(Str, Str1 Str2 "" Str3)
+     else parseLogEvent(Str, Str1 split(Str2, "-") Str3)
+     fi .
+  eq parseLogEvent(Str, Str1 Str2 Str3 Str4)
+   = event(token(trunc(rat(Str1, 10))), 
+           id(Str2), 
+           event(Str3), 
+           if rat(Str4, 10) :: Rat then rat(Str4, 10) else rat(float(Str4)) fi) .
+endm
+
+sload socket.maude 
+
+mod CTRL-SOCKET is 
+    pr MAYBE{Oid} .
+    pr PARSE-LOG-EVENT .
+    pr BPMN-LOG-GUIDED .
+    inc SOCKET .
+
+    ops PORT BACKLOG : -> Nat .
+    op IP : -> String .
+    eq PORT = 8811 .
+    eq BACKLOG = 5 .
+    eq IP = "localhost" .
+
+    ---- class CtrlSocket | socket: Maybe{Oid}, buffer: String .
+    ---- subclass Ctrl < CtrlSocket .
+    sort CtrlSocket .
+    subsort CtrlSocket < Ctrl .
+    op CtrlSocket : -> CtrlSocket .
+    op socket:_ : Maybe{Oid} -> Attribute [ctor gather(&)] . ---- socket
+    op buffer:_ : String -> Attribute [ctor gather(&)] . ---- incoming messages buffer
+
+    ---- additional messages to manage buffered incomes
+    op Receive : Oid Oid -> Msg .
+    op Received : Oid Oid String -> Msg .
+
+    op CTRL-SOCKET : Oid -> Configuration .
+    eq CTRL-SOCKET(O)
+      = < O : CtrlSocket | socket: null, buffer: "", events: nil, tokens: nil >
+        createClientTcpSocket(socketManager, O, IP, PORT) .
+
+    vars O LISTENER SOCKET : Oid .
+    vars TEXT CIP St St' : String .
+    var  Atts : AttributeSet .
+    var  VCtrlSocket : CtrlSocket .
+    var  EL : List{LogEvent} .
+
+    rl [Receive] : 
+        < O : VCtrlSocket | buffer: St, Atts >  
+        Receive(SOCKET, O)
+     => if find(St, "\n", 0) == notFound
+        then < O : VCtrlSocket | buffer: St, Atts >  
+            receive(SOCKET, O)
+        else < O : VCtrlSocket | buffer: substr(St, find(St, "\n", 0) + 1, length(St)), Atts >  
+            Received(O, SOCKET, substr(St, 0, find(St, "\n", 0) + 1))
+        fi .
+
+    crl [received] : 
+        < O : VCtrlSocket | buffer: St, Atts >  
+        received(O, SOCKET, TEXT) 
+     => if find(St', "\n", 0) == notFound
+        then < O : VCtrlSocket | buffer: St', Atts > 
+            receive(SOCKET, O) 
+        else < O : VCtrlSocket | buffer: substr(St', find(St', "\n", 0) + 1, length(St')), Atts >  
+            Received(O, SOCKET, substr(St', 0, find(St', "\n", 0) + 1)) 
+        fi 
+    if St' := St + TEXT .
+
+    rl < O : VCtrlSocket | socket: null, Atts >
+       createdSocket(O, socketManager, SOCKET) 
+    => < O : VCtrlSocket | socket: SOCKET, Atts > 
+       Receive(SOCKET, O) .
+
+    rl < O : VCtrlSocket | events: EL, socket: SOCKET, buffer: St, Atts >
+        Received(O, SOCKET, TEXT)
+     => if TEXT == "END\n" ---- end of the reception
+        then < O : VCtrlSocket | events: EL END, socket: SOCKET, buffer: St, Atts >
+        else if substr(TEXT, 0, 11) == "PREDICTIONS"
+             then < O : VCtrlSocket | events: EL PREDICTIONS(trunc(rat(substr(TEXT, 12, 1), 10))), socket: SOCKET, buffer: St, Atts >
+             else < O : VCtrlSocket | events: EL parseLogEvent(TEXT), socket: SOCKET, buffer: St, Atts > 
+                  Receive(SOCKET, O) 
+             fi
+        fi
+        ---- [print "from socket server ---> " TEXT] 
+        .
+
+    rl < O : VCtrlSocket | Atts >
+       closedSocket(O, SOCKET, St) 
+    => < O : VCtrlSocket | Atts > .
+endm
+
+---- set print attribute on . 
+---- set self off .
+---- erew <> CTRL-SOCKET(O:Oid) .

@@ -1,0 +1,77 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload file.maude
+sload socket.maude
+
+view Oid from TRIV to CONFIGURATION is
+   sort Elt to Oid .
+endv
+
+fmod MAYBE{X :: TRIV} is
+   sort Maybe{X} .
+   subsort X$Elt < Maybe{X} .
+   op null : -> Maybe{X} [ctor] .
+endfm
+
+mod PROCESS is
+   inc MAYBE{Oid} .
+   inc FILE .
+   inc SOCKET .
+
+   op TRACE-FILE : -> String .
+   ops PORT BACKLOG : -> Nat .
+   op IP : -> String .
+   eq TRACE-FILE = "self.csv" .
+   eq PORT = 8811 .
+   eq BACKLOG = 5 .
+   eq IP = "localhost" .
+
+   ---- class Process | in-file: Oid, out-socket: Oid .
+   sort Process .
+   subsort Process < Cid .
+   op Process : -> Process .
+   ops in-file:_ out-socket:_ : Maybe{Oid} -> Attribute [ctor] . ---- file handler and socket client
+
+   vars O FILE SOCKET : Oid .
+   vars N M : Nat .
+   vars TEXT St : String .
+   var  Atts : AttributeSet .
+
+   op o : -> Oid .
+
+   op PROCESS : Oid -> Object .
+   eq PROCESS(O)
+      = < O : Process | in-file: null, out-socket: null  >
+        openFile(fileManager, O, TRACE-FILE, "r")  ---- we assume the file already exists
+        createClientTcpSocket(socketManager, O, IP, PORT) .
+
+   rl < O : Process | in-file: null, out-socket: null, Atts >
+      openedFile(O, fileManager, FILE) 
+      createdSocket(O, socketManager, SOCKET) 
+   => < O : Process | in-file: FILE, out-socket: SOCKET, Atts > 
+      getLine(FILE, O) .
+
+   rl < O : Process | in-file: FILE, out-socket: SOCKET, Atts >
+      gotLine(O, FILE, TEXT)
+   => if TEXT == "" 
+      then < O : Process | in-file: FILE, out-socket: SOCKET, Atts > 
+           send(SOCKET, O, "END\n")
+           closeFile(FILE, O)
+      else < O : Process | in-file: FILE, out-socket: SOCKET, Atts > 
+           send(SOCKET, O, TEXT)
+      fi
+      [print TEXT] .
+
+   rl < O : Process | in-file: FILE, out-socket: SOCKET, Atts >
+      sent(O, SOCKET) 
+   => < O : Process | in-file: FILE, out-socket: SOCKET, Atts > 
+      getLine(FILE, O) .
+
+   rl < O : Process | in-file: FILE, Atts >
+      closedFile(O, FILE) 
+   => < O : Process | in-file: null, Atts > .
+endm
+
+set print attribute on . 
+erew <> PROCESS(o) .

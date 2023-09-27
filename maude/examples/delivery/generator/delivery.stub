@@ -1,0 +1,51 @@
+---- Auto-generated file
+
+sload ../../../bpmn-file.maude
+sload ../../../bpmn-analysis.maude
+sload ../../../supervisor-usage.maude
+
+red in STRING : "delivery.maude" .
+sload ../delivery.maude --- delivery-by-drones process
+
+mod RUN is
+  inc BPMN-EX .
+  inc SUPERVISOR .
+
+  eq TRACE-FILE = "<self-file>" .
+  eq POPULATION = 100 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+  eq TIME-BETWEEN-CHECKS = 10 .                 ---- TIME-BETWEEN-CHECKS
+  eq CHECK-INTERVAL = 25 .                      ---- CHECK-INTERVAL
+  eq RESOURCES
+    = (id("clerk") |-> (0,<clerk>,5,<clerk>),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("worker") |-> (0,<worker>,4,<worker>),
+       id("courier") |-> (0,<courier>,3,<courier>),
+       id("car") |-> (0,<car>,2,<car>),
+       id("drone") |-> (0,<drone>,3,<drone>)) .
+  eq THRESHOLDS
+    = (id("clerk") |-> (float(70),float(80)),   ---- THRESHOLDS
+       id("worker") |-> (float(70),float(80)),
+       id("courier") |-> (float(70),float(80)),
+       id("car") |-> (float(70),float(80)),
+       id("drone") |-> (float(70),float(80))) .
+  eq COSTS
+    = (id("clerk") |-> float(60),               ---- COST PER TIME UNIT
+       id("worker") |-> float(50),
+       id("courier") |-> float(40),
+       id("drone") |-> float(20),
+       id("car") |-> float(30)) .
+
+  ---- init state
+  ops p s w c l sh fh : -> Oid .
+  op initState : -> Configuration .
+  rl initState
+    => FILE-HANDLER(fh)
+       PROCESS(p)
+       SIMULATION(s, RESOURCES)
+       WORKLOAD(w, RATE, POPULATION)
+       COUNTER(c)
+       SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS) .
+endm
+
+erew { pretty-printing initState } .
+q

@@ -1,0 +1,37 @@
+% maude examples/delivery/runs/bpmn-run-delivery-usage.maude
+rewrites: 3199813 in 4507ms cpu (4588ms real) (709863 rewrites/second)
+result System: 
+average execution time : 6.7746464502566283e+1
+variance execution time : 2.026067918654055e+1
+total cost : 1.0915172407502795e+5
+resource usage : id("car") |-> 3.6157459412798531e+1, id("clerk") |-> 3.4620689065530271e+1, id("courier") |-> 3.6521470914599348e+1, id(
+    "drone") |-> 4.5162949260039625e+1, id("worker") |-> 3.7135697504940829e+1
+
+% maude examples/delivery/runs/bpmn-run-delivery-queues.maude 
+rewrites: 3754502 in 5935ms cpu (5976ms real) (632588 rewrites/second)
+result System: 
+average execution time : 9.2292086464649785e+1
+variance execution time : 4.8382438810258897e+1
+total cost : 9.1746836568102386e+4
+resource usage : id("car") |-> 5.4416720632571995e+1, id("clerk") |-> 4.5691795843375985e+1, id("courier") |-> 5.4416720632571995e+1, id(
+    "drone") |-> 6.9157026566915874e+1, id("worker") |-> 5.3907816253718821e+1
+
+% maude examples/delivery/runs/bpmn-run-delivery-usage-queues.maude
+rewrites: 3756505 in 5841ms cpu (5878ms real) (643121 rewrites/second)
+result System: 
+average execution time : 9.2292086464649785e+1
+variance execution time : 4.8382438810258897e+1
+total cost : 9.1746836568102386e+4 
+resource usage : id("car") |-> 5.4416720632571995e+1, id("clerk") |-> 4.5691795843375985e+1, id("courier") |-> 5.4416720632571995e+1, id(
+    "drone") |-> 6.9157026566915874e+1, id("worker") |-> 5.3907816253718821e+1
+
+% maude examples/delivery/runs/bpmn-run-delivery-predictive-usage.maude 
+rewrites: 11820573 in 18731ms cpu (18875ms real) (631049 rewrites/second)
+result System: 
+average execution time : 7.322863499168399e+1
+variance execution time : 2.5496475390678246e+1
+total cost : 1.149910907655851e+5
+resource usage : id("car") |-> 2.0929329896644479e+1, id("clerk") |-> 2.8411046587891317e+1, id("courier") |-> 2.1241383083451879e+1, id(
+    "drone") |-> 4.1820694297237985e+1, id("worker") |-> 3.3080101778820094e+1
+
+% maude examples/delivery/runs/bpmn-run-delivery-predictive-ml-usage.maude 

@@ -1,0 +1,64 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+---- This file contains operations for the automated analysis of BPMN processes
+---- To be able to use files (and processes), Maude needs to be executed with the -trust flag
+
+sload bpmn-log-guided.maude
+
+--- 1. delivery-by-drones process
+red in STRING : "delivery.maude" .
+sload ../examples/delivery/delivery.maude
+
+sload bpmn-log-guided-analysis.maude
+
+mod RUN is
+  inc APMAUDE-LOG-GUIDED .
+  inc CTRL-SOCKET .
+  inc BPMN-EX .
+
+  eq POPULATION = 100 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+----  eq TIME-BETWEEN-CHECKS = 10 .                 ---- TIME-BETWEEN-CHECKS
+----  eq CHECK-INTERVAL = 25 .                      ---- CHECK-INTERVAL
+  eq RESOURCES
+    = (id("clerk") |-> (1,0,5,2),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("worker") |-> (1,0,4,2),
+       id("courier") |-> (1,0,3,2),
+       id("car") |-> (1,0,2,2),
+       id("drone") |-> (1,0,3,2)) .
+----  eq THRESHOLDS
+----    = (id("clerk") |-> (float(70),float(80)),   ---- THRESHOLDS
+----       id("worker") |-> (float(70),float(80)),
+----       id("courier") |-> (float(70),float(80)),
+----       id("car") |-> (float(70),float(80)),
+----       id("drone") |-> (float(70),float(80))) .
+  eq COSTS
+    = (id("clerk") |-> float(60),               ---- COST PER TIME UNIT
+       id("worker") |-> float(50),
+       id("courier") |-> float(40),
+       id("drone") |-> float(20),
+       id("car") |-> float(30)) .
+
+  ---- init state
+  ops p s w c l cs : -> Oid .
+  op initState : -> Configuration .
+  rl initState
+    => PROCESS(p)
+       SIMULATION(s, RESOURCES)
+       ----WORKLOAD(w, RATE, POPULATION)
+       COUNTER(c)
+       ----SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS)
+       CTRL-SOCKET(cs)
+       .
+endm
+
+set print conceal off .
+print conceal process-execs:_
+              process-tstamps:_
+              task-times:_
+              task-tstamps:_
+              .
+set print attribute on .
+erew {pretty-printing initState} .
+  

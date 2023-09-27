@@ -1,0 +1,32 @@
+duran@pdi-133-24 examples % maude visa/runs/bpmn-run-visa-usage.maude 
+rewrites: 5114506 in 7799ms cpu (7856ms real) (655742 rewrites/second)
+result System: 
+average execution time : 4.7610350796866989e+1
+variance execution time : 1.197674648882615e+1
+total cost : 1.1799215331312166e+5
+resource usage : id("employee") |-> 7.7028659616206269e+1, id("printer") |-> 3.0599933797901173e+1
+
+duran@pdi-133-24 examples % maude visa/runs/bpmn-run-visa-queues.maude 
+rewrites: 4277110 in 6688ms cpu (6755ms real) (639491 rewrites/second)
+result System: 
+average execution time : 3.9931373152416974e+1
+variance execution time : 7.2514188682736327
+total cost : 1.317990113809153e+5
+resource usage : id("employee") |-> 7.1535941079728957e+1, id("printer") |-> 2.8827993650550908e+1
+
+duran@pdi-133-24 examples % maude visa/runs/bpmn-run-visa-usage-queues.maude
+rewrites: 4277587 in 6985ms cpu (7117ms real) (612320 rewrites/second)
+result System: 
+average execution time : 3.9931373152416974e+1
+variance execution time : 7.2514188682736327
+total cost : 1.317990113809153e+5
+resource usage : id("employee") |-> 7.1535941079728957e+1, id("printer") |-> 2.8827993650550908e+1
+
+duran@pdi-133-24 examples % maude visa/runs/bpmn-run-visa-predictive-usage.maude 
+rewrites: 15434218 in 25365ms cpu (25676ms real) (608481 rewrites/second)
+result System: 
+average execution time : 3.602107391974333e+1
+variance execution time : 5.2983566429714672
+total cost : 1.0705056541279767e+5
+resource usage : id("employee") |-> 7.2455232326434427e+1, id("printer") |-> 2.8797453937026734e+1
+

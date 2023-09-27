@@ -1,0 +1,87 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+sload socket.maude
+
+fmod MAYBE{X :: TRIV} is
+  sort Maybe{X} .
+  subsort X$Elt < Maybe{X} .
+  op null : -> Maybe{X} [ctor] .
+endfm
+
+mod PROCESS is 
+   pr MAYBE{Nat} .
+   inc SOCKET .
+
+   ops PORT BACKLOG : -> Nat .
+   op IP : -> String .
+   eq PORT = 8811 .
+   eq BACKLOG = 5 .
+   eq IP = "localhost" .
+
+   op o : -> Oid .
+
+   ---- class Process | buffer: String .
+   sort Process .
+   subsort Process < Cid .
+   op Process : -> Process .
+   op buffer:_ : String -> Attribute [ctor] . ---- incoming messages buffer
+
+   op Receive : Oid Oid -> Msg .
+   op Received : Oid Oid String -> Msg .
+   
+   op PROCESS : -> Configuration .
+   eq PROCESS
+    = < o : Process | buffer: "" >
+      createClientTcpSocket(socketManager, o, IP, PORT) .
+
+   vars O LISTENER SOCKET : Oid .
+   vars TEXT CIP St St' : String .
+   var  Atts : AttributeSet .
+   var  VProcess : Process .
+
+   rl [Receive] : 
+      < O : VProcess | buffer: St, Atts >  
+      Receive(SOCKET, O)
+      => if find(St, "\n", 0) == notFound
+         then < O : VProcess | buffer: St, Atts >  
+              receive(SOCKET, O)
+         else < O : VProcess | buffer: substr(St, find(St, "\n", 0) + 1, length(St)), Atts >  
+              Received(O, SOCKET, substr(St, 0, find(St, "\n", 0) + 1))
+         fi .
+
+   crl [received] : 
+      < O : VProcess | buffer: St, Atts >  
+      received(O, SOCKET, TEXT) 
+      => if find(St', "\n", 0) == notFound
+         then < O : VProcess | buffer: St', Atts > 
+              receive(SOCKET, O) 
+         else < O : VProcess | 
+              buffer: substr(St', find(St', "\n", 0) + 1, length(St')), Atts >  
+              Received(O, SOCKET, substr(St', 0, find(St', "\n", 0) + 1)) 
+         fi 
+   if St' := St + TEXT .
+
+   rl < O : VProcess | Atts >
+      createdSocket(O, socketManager, SOCKET) 
+   => < O : VProcess | Atts > 
+      Receive(SOCKET, O) .
+
+   rl < O : VProcess | Atts >
+      Received(O, SOCKET, TEXT)
+   => if TEXT == "END\n" ---- end of the reception
+      then < O : VProcess | Atts >
+      else ---- something is supposed to be done with the TEXT, which represents an event
+           < O : VProcess | Atts > 
+           Receive(SOCKET, O) 
+      fi
+      [print TEXT] .
+
+   rl < O : VProcess | Atts >
+      closedSocket(O, SOCKET, St) 
+   => < O : VProcess | Atts > .
+endm
+
+set print attribute on . 
+set self off .
+erew <> PROCESS .

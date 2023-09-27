@@ -1,0 +1,79 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, and Gwen Salaun
+---- file: run.maude
+----
+---- This file contains operations for the automated analysis of BPMN processes
+
+load ../../../bpmn-sockets.maude
+load ../../../bpmn-sockets-analysis.maude
+load ../../../log-guided/bpmn-log-guided.maude
+load ../../../supervisor-predictive-ml-usage.maude
+
+red in STRING : "visa.maude" .
+load ../visa.maude
+
+mod RUN is
+  inc BPMN-EX .
+  inc SUPERVISOR .
+
+  eq POPULATION = 100 .
+  eq RATE = Exp(0.5) .                          ---- INTER-TOKEN ARRIVAL TIME
+  eq TIME-BETWEEN-CHECKS = 10 .                 ---- TIME-BETWEEN-CHECKS
+  eq PREDICTION-TIME = 10 .                     ---- SIZE OF PREDICTION
+  eq RESOURCES
+    = (id("employee") |-> (1,10,10,2),     ---- RANGES, ALLOC. TIMES & INITIAL TOTALS
+       id("printer") |-> (1,10,1,2)) .
+  eq THRESHOLDS
+    = (id("employee") |-> (70.0,80.0),   ---- THRESHOLDS
+       id("printer") |-> (70.0,80.0)) .
+  eq COSTS
+    = (id("employee") |-> 90.0,               ---- COST PER TIME UNIT
+       id("printer") |-> 2.0) .
+
+  ---- init state
+  ops p s w c l sh : -> Oid .
+  op initState : -> Configuration .
+  eq initState
+    = token ---- used to wait for socket sent confirmations before attempting subsequent sends or receives
+      PROCESS(p)
+      SIMULATION(s, RESOURCES)
+      WORKLOAD(w, RATE, POPULATION)
+      COUNTER(c)
+      SUPERVISOR(l, TIME-BETWEEN-CHECKS, CHECK-INTERVAL, THRESHOLDS, PREDICTION-TIME)
+      SOCKET-HANDLER(sh) 
+      .
+endm
+
+set print attribute on .
+
+set self off .
+set self rls on .
+set self eqs off .
+set self select off .
+self select supervisor-prediction-completed
+             supervisor-initiate-prediction 
+             ----creationEvents
+             ----splitGatewayExclusive
+             ----initTask*
+             ----shift
+             tick
+             .
+set self substitution on .
+
+set print conceal off .
+print conceal nodes:_
+              flows:_
+              process-execs:_
+              process-tstamps:_
+              resources:_
+              sync-times:_
+              sync-tstamps:_
+              task-times:_
+              task-tstamps:_
+              ----events`:_
+              .
+----print reveal resources`:_
+----             .
+
+erew { complete initState } .
+q

@@ -1,0 +1,66 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+---- This file contains operations for the automated analysis of BPMN processes
+
+---- the bpmn spec is loaded in the example's run, see examples/run/*.maude
+
+sload ../bpmn-analysis.maude
+
+mod APMAUDE-LOG-GUIDED is
+  inc BPMN-LOG-GUIDED .
+  inc APMAUDE .
+
+  vars CId RId Id TId NId : Id .
+  vars PId SId WId Sup LId : Oid .
+  vars Atts Atts' Atts1 Atts2 Atts3 : AttributeSet .
+  vars T T' T'' T''' T1 T2 T3 AT : Time .
+  var  Tk : Token .
+  var  Tks : List{Token} .
+  var  Conf : Configuration .
+  var  Nodes : Set{Node} .
+  var  B : Bool .
+  vars F R S A Cost FT FT' FT'' ATtl : Float .
+  vars N W Min Max Ttl Ttl' Avl QSize : Nat .
+  vars TSs TSs' : Map{Id, Time} .
+  vars TTSs TTSs' : Map{Id, Map{Id, Time}} .
+  var  SE : StochasticExpression .
+  var  Rs : Set{Resource} .
+  var  NFs : Map{Id, 2-Tuple{Nat, Float}} .
+  vars FNs SeqTtl SeqAvl SeqQSize : List{2-Tuple{Float, Nat}} .
+  var  SeqUsage : List{2-Tuple{Float, Float}} .
+  vars ME : Map{Id, Set{EventInstance}} .
+  var  Evs : Set{EventInstance} .
+  var  Replicas : Bag{Replica} .
+  var  Str : String .
+  var  Ids : Set{Id} .
+  var  Costs : Map{Id, Float} .
+  var  VCtrl : Ctrl .
+
+  op pretty-printing : -> Msg .
+  eq [pretty-printing] :
+     { pretty-printing
+       < SId : Simulation |
+           tokens: nil,
+           gtime: T,
+           process-tstamps: TSs',
+           size-process-tstamps: s N,
+           process-execs: TSs,
+           size-process-execs: s N,
+----         sync-times: TTSs,
+----         task-times: TTSs',
+           resources: Rs,
+          Atts' >
+       < LId : VCtrl | tokens: Tks,
+                        events: (nil).List{LogEvent}, 
+                        Atts2 >
+       Conf }
+    = (average execution time : if T == 0 then 0.0 else avg(TSs) fi
+       variance execution time : if T == 0 then 0.0 else var(TSs, avg(TSs)) fi
+----       average sync times : map-avg(TTSs)
+----       average task times : map-avg(TTSs')
+       total cost : cost(Rs, COSTS, T)
+       resource usage : resources(Rs, T)  ---- usage percentage per replica
+       resource usage : cleanResources(Rs)) .
+
+endm

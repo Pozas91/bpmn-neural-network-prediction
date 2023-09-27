@@ -1,0 +1,61 @@
+---- Formal Modelling and Analysis of BPMN processes using Maude
+---- authors: Francisco Duran, Camilo Rocha, Gwen Salaun, and Nicolas Pozas
+
+----sload maybe.maude
+sload view-oid.maude
+sload socket.maude
+
+mod SOCKET-HANDLER is
+  pr MAYBE{Oid} .
+  inc SOCKET .
+
+  op PORT : -> Nat .
+  op IP : -> String .
+  eq PORT = 8811 .
+  eq IP = "localhost" .
+
+  ---- class SocketHandler | socket: Maybe{Oid}, buffer: String .
+  sort SocketHandler .
+  subsort SocketHandler < Cid .
+  op SocketHandler : -> SocketHandler .
+  op socket:_ : Maybe{Oid} -> Attribute [ctor gather(&)] . ---- socket handlers
+  op buffer:_ : String -> Attribute [ctor gather(&)] . ---- incoming messages buffer
+
+  op Receive : Oid Oid -> Msg .
+  op Received : Oid Oid String -> Msg .
+
+  vars SH SOCKET : Oid .
+  vars DATA St St' : String .
+  var  Atts : AttributeSet .
+
+  op SOCKET-HANDLER : Oid -> Object .
+  eq SOCKET-HANDLER(SH)
+   = < SH : SocketHandler | socket: null, buffer: "" >
+     createClientTcpSocket(socketManager, SH, IP, PORT) .
+
+  rl < SH : SocketHandler | socket: null, Atts >
+     createdSocket(SH, socketManager, SOCKET) 
+  => < SH : SocketHandler | socket: SOCKET, Atts > . 
+
+  rl [Receive] : 
+     < SH : SocketHandler | buffer: St, Atts >  
+     Receive(SOCKET, SH)
+  => if find(St, "\n", 0) == notFound
+     then < SH : SocketHandler | buffer: St, Atts >  
+          receive(SOCKET, SH)
+     else < SH : SocketHandler | buffer: substr(St, find(St, "\n", 0) + 1, length(St)), Atts >  
+          Received(SH, SOCKET, substr(St, 0, find(St, "\n", 0) + 1))
+     fi .
+
+ crl [received] : 
+     < SH : SocketHandler | buffer: St, Atts >  
+     received(SH, SOCKET, DATA) 
+  => if find(St', "\n", 0) == notFound
+     then < SH : SocketHandler | buffer: St', Atts > 
+          receive(SOCKET, SH) 
+     else < SH : SocketHandler | 
+              buffer: substr(St', find(St', "\n", 0) + 1, length(St')), Atts >  
+          Received(SH, SOCKET, substr(St', 0, find(St', "\n", 0) + 1)) 
+     fi 
+  if St' := St + DATA .
+endm
